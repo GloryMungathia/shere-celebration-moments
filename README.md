@@ -12,7 +12,7 @@ Instead of relying only on traditional paper invitations or ordinary messages, S
 
 Visit the live SHERÉ Moments website:
 
-**https://shere-celebration-moments.netlify.app**
+**https://shere-celebretion-moments.netlify.app/**
 
 ---
 
