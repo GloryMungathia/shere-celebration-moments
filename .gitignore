@@ -22,3 +22,6 @@ dist-ssr
 *.sw?
 .env
 .bolt/
+
+/playwright-report
+/test-results

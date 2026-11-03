@@ -229,6 +229,30 @@ cd backend && pytest --cov=app
 cd .. && npm run test:coverage
 ```
 
+### 6. Run the browser tests (Playwright)
+
+The browser tests use the app the way a real user would: sign up, design and publish invitations, send messages, and check login safety and the phone layout.
+
+Install the browser once:
+
+```bash
+npx playwright install chromium
+```
+
+Run them on your computer. They start their own backend and website with a fresh test database:
+
+```bash
+npm run test:e2e
+```
+
+Run them against the live site:
+
+```bash
+E2E_BASE_URL=https://your-site.netlify.app npm run test:e2e
+```
+
+Open the last report with `npm run test:e2e:report`.
+
 ---
 
 ## 🏭 Production Build
