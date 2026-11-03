@@ -4,10 +4,11 @@ import { Heart, ArrowLeft } from 'lucide-react';
 import { fetchPublicMessage } from '@/lib/api';
 import Spinner from '@/components/ui/Spinner';
 import { messageCategoryLabels, messageCategoryIcons } from '@/data/messageTemplates';
+import type { CelebrationMessage } from '@/types';
 
 export default function PublicMessagePage() {
   const { slug } = useParams<{ slug: string }>();
-  const [message, setMessage] = useState<any>(null);
+  const [message, setMessage] = useState<CelebrationMessage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

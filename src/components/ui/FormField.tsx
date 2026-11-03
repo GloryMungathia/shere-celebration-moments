@@ -4,14 +4,23 @@ interface FormFieldProps {
   label: string;
   children: ReactNode;
   hint?: string;
+  htmlFor?: string;
+  error?: string;
 }
 
-export default function FormField({ label, children, hint }: FormFieldProps) {
+export default function FormField({ label, children, hint, htmlFor, error }: FormFieldProps) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-stone-700">{label}</label>
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="block text-sm font-medium text-stone-700">
+          {label}
+        </label>
+      ) : (
+        <p className="block text-sm font-medium text-stone-700">{label}</p>
+      )}
       {children}
-      {hint && <p className="text-xs text-stone-400">{hint}</p>}
+      {hint && !error && <p className="text-xs text-stone-400">{hint}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

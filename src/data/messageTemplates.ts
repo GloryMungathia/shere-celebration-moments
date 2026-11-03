@@ -203,3 +203,24 @@ export const messageCategoryIcons: Record<MessageCategory, string> = {
   'thank-you': '🙏',
   other: '💌',
 };
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export const messageTemplates: MessageTemplate[] = messageTemplateSeeds.map((seed) => ({
+  id: `${seed.category}-${slugify(seed.title)}`,
+  ...seed,
+}));
+
+export function getMessageTemplates(category?: string): MessageTemplate[] {
+  return category ? messageTemplates.filter((t) => t.category === category) : messageTemplates;
+}
+
+export function getMessageTemplate(id: string | null | undefined): MessageTemplate | null {
+  return messageTemplates.find((t) => t.id === id) ?? null;
+}

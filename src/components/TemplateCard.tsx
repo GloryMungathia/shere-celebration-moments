@@ -21,6 +21,12 @@ export default function TemplateCard({ template, onUse }: TemplateCardProps) {
               event_time: '4:00 PM',
               venue: 'Grand Hall',
               message: 'Join us for a celebration!',
+              extras: {
+                ...template.starter,
+                second_event: template.starter?.second_event
+                  ? { ...template.starter.second_event, date: '2026-06-20', time: '14:00', venue: 'Garden Hall' }
+                  : null,
+              },
             }}
             template={template}
             customization={template.config}

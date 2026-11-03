@@ -1,149 +1,181 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Save, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Save, Eye, Check } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import Button from '@/components/ui/Button';
 import FormField, { Input, TextArea, Select } from '@/components/ui/FormField';
 import Modal from '@/components/ui/Modal';
 import SharePanel from '@/components/SharePanel';
 import Spinner from '@/components/ui/Spinner';
-import {
-  fetchMessageTemplates,
-  createMessage,
-  updateMessage,
-  publishMessage,
-} from '@/lib/api';
+import { fetchMessageById, createMessage, updateMessage, publishMessage } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
-import { messageCategoryLabels, messageCategoryIcons } from '@/data/messageTemplates';
-import { getMessageFontOptions } from '@/data/fonts';
-import type { MessageCategory, MessageTemplate } from '@/types';
+import { messageCategoryLabels, messageCategoryIcons, getMessageTemplate } from '@/data/messageTemplates';
+import { getMessageFontGroups } from '@/data/fonts';
+import type { CelebrationMessage, ItemStatus, MessageCategory } from '@/types';
+
+const EMPTY_FORM = { recipient_name: '', title: '', message: '', sender_name: '', font: '' };
+type FormData = typeof EMPTY_FORM;
+
+const draftKey = (key: string) => `shere_message_draft_${key}`;
+
+function readDraft(key: string): FormData | null {
+  try {
+    const raw = sessionStorage.getItem(draftKey(key));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(key: string, form: FormData) {
+  try {
+    sessionStorage.setItem(draftKey(key), JSON.stringify(form));
+  } catch {
+    return;
+  }
+}
+
+function clearDraft(key: string) {
+  try {
+    sessionStorage.removeItem(draftKey(key));
+  } catch {
+    return;
+  }
+}
 
 export default function MessageEditorPage() {
   const [searchParams] = useSearchParams();
   const templateId = searchParams.get('template');
+  const editId = searchParams.get('id');
+  const draftId = templateId ?? 'blank';
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
 
-  const [template, setTemplate] = useState<MessageTemplate | null>(null);
+  const [category, setCategory] = useState<MessageCategory>('other');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<'draft' | 'publish' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [savedNote, setSavedNote] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState('');
-  const [messageId, setMessageId] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    recipient_name: '',
-    title: '',
-    message: '',
-    sender_name: '',
-    font: '',
-  });
-
-  const loadTemplate = useCallback(async () => {
-    if (!templateId) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const templates = await fetchMessageTemplates();
-      const tpl = templates.find((t) => t.id === templateId);
-      if (!tpl) {
-        setError('Message template not found.');
-        return;
-      }
-      setTemplate(tpl);
-      setFormData((prev) => ({
-        ...prev,
-        title: tpl.title,
-        message: tpl.message,
-      }));
-    } catch {
-      setError('Failed to load message template.');
-    } finally {
-      setLoading(false);
-    }
-  }, [templateId]);
+  const [messageId, setMessageId] = useState<string | null>(editId);
+  const [status, setStatus] = useState<ItemStatus>('draft');
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
 
   useEffect(() => {
-    loadTemplate();
-  }, [loadTemplate]);
+    if (authLoading) return;
+    let active = true;
 
-  const category = (template?.category ?? 'other') as MessageCategory;
-  const fontOptions = getMessageFontOptions(category);
-  const selectedFont = formData.font || fontOptions[0]?.value || "'Dancing Script', cursive";
+    async function load() {
+      setLoading(true);
+      setError(null);
+      if (editId) {
+        if (!user) {
+          navigate('/login', { replace: true, state: { from: location.pathname + location.search } });
+          return;
+        }
+        try {
+          const msg = await fetchMessageById(editId);
+          if (!active) return;
+          setCategory(msg.category);
+          setMessageId(msg.id);
+          setStatus(msg.status);
+          setFormData({
+            recipient_name: msg.recipient_name ?? '',
+            title: msg.title ?? '',
+            message: msg.message ?? '',
+            sender_name: msg.sender_name ?? '',
+            font: msg.font ?? '',
+          });
+        } catch (err) {
+          if (active) setError(err instanceof Error ? err.message : 'Failed to load this message.');
+        } finally {
+          if (active) setLoading(false);
+        }
+        return;
+      }
 
-  const handleFieldChange = (field: keyof typeof formData, value: string) => {
+      const tpl = templateId ? getMessageTemplate(templateId) : null;
+      if (templateId && !tpl) setError('Message template not found.');
+      setCategory(tpl?.category ?? 'other');
+      const draft = readDraft(draftId);
+      setFormData(draft ?? { ...EMPTY_FORM, title: tpl?.title ?? '', message: tpl?.message ?? '' });
+      setLoading(false);
+    }
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [templateId, editId, draftId, user, authLoading, navigate, location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!editId && !messageId && !loading) writeDraft(draftId, formData);
+  }, [editId, messageId, loading, draftId, formData]);
+
+  const fontGroups = getMessageFontGroups(category);
+  const selectedFont = formData.font || fontGroups[0]?.options[0]?.value || "'Dancing Script', cursive";
+  const isPublished = status === 'published';
+
+  const handleFieldChange = (field: keyof FormData, value: string) => {
+    setSavedNote(false);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const save = async (): Promise<CelebrationMessage> => {
+    const input = {
+      category,
+      recipient_name: formData.recipient_name,
+      title: formData.title,
+      message: formData.message,
+      sender_name: formData.sender_name,
+      font: selectedFont,
+    };
+    if (messageId) return updateMessage(messageId, input);
+    const created = await createMessage(input);
+    setMessageId(created.id);
+    clearDraft(draftId);
+    window.history.replaceState(window.history.state, '', `/message-editor?id=${created.id}`);
+    return created;
+  };
+
+  const needLogin = () => {
+    if (user) return false;
+    writeDraft(draftId, formData);
+    navigate('/login', { state: { from: location.pathname + location.search } });
+    return true;
+  };
+
   const handleSaveDraft = async () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    setSaving(true);
+    if (needLogin()) return;
+    setSaving('draft');
     setError(null);
     try {
-      const input = {
-        category,
-        recipient_name: formData.recipient_name,
-        title: formData.title,
-        message: formData.message,
-        sender_name: formData.sender_name,
-        font: selectedFont,
-        status: 'draft' as const,
-      };
-      if (messageId) {
-        await updateMessage(messageId, input);
-      } else {
-        const created = await createMessage(input);
-        setMessageId(created.id);
-      }
+      const saved = await save();
+      setStatus(saved.status);
+      setSavedNote(true);
     } catch (err) {
-      setError('Failed to save. Please try again.');
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to save. Please try again.');
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
   const handlePublish = async () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    setSaving(true);
+    if (needLogin()) return;
+    setSaving('publish');
     setError(null);
     try {
-      const input = {
-        category,
-        recipient_name: formData.recipient_name,
-        title: formData.title,
-        message: formData.message,
-        sender_name: formData.sender_name,
-        font: selectedFont,
-        status: 'draft' as const,
-      };
-
-      let id = messageId;
-      if (!id) {
-        const created = await createMessage(input);
-        id = created.id;
-        setMessageId(id);
-      } else {
-        await updateMessage(id, input);
-      }
-
-      const published = await publishMessage(id);
-      const url = `${window.location.origin}/message/${published.slug}`;
-      setPublishedUrl(url);
+      const saved = await save();
+      const published = await publishMessage(saved.id);
+      setStatus(published.status);
+      setPublishedUrl(`${window.location.origin}/message/${published.slug}`);
       setShowShare(true);
     } catch (err) {
-      setError('Failed to publish. Please try again.');
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to publish. Please try again.');
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
@@ -189,63 +221,82 @@ export default function MessageEditorPage() {
             <div className="rounded-2xl bg-white border border-stone-100 shadow-sm p-6 space-y-4">
               <h2 className="text-lg font-semibold text-stone-800">Message Details</h2>
 
-              <FormField label="Recipient Name">
+              <FormField label="Recipient Name" htmlFor="msg-recipient_name">
                 <Input
+                  id="msg-recipient_name"
                   value={formData.recipient_name}
                   onChange={(e) => handleFieldChange('recipient_name', e.target.value)}
                   placeholder="e.g. Sarah"
                 />
               </FormField>
 
-              <FormField label="Message Title">
+              <FormField label="Message Title" htmlFor="msg-title">
                 <Input
+                  id="msg-title"
                   value={formData.title}
                   onChange={(e) => handleFieldChange('title', e.target.value)}
                   placeholder="e.g. Congratulations on Your Graduation!"
                 />
               </FormField>
 
-              <FormField label="Message Body">
+              <FormField label="Message Body" htmlFor="msg-message">
                 <TextArea
                   rows={6}
+                  id="msg-message"
                   value={formData.message}
                   onChange={(e) => handleFieldChange('message', e.target.value)}
                   placeholder="Write your message here..."
                 />
               </FormField>
 
-              <FormField label="From (Sender Name)">
+              <FormField label="From (Sender Name)" htmlFor="msg-sender_name">
                 <Input
+                  id="msg-sender_name"
                   value={formData.sender_name}
                   onChange={(e) => handleFieldChange('sender_name', e.target.value)}
                   placeholder="e.g. John"
                 />
               </FormField>
 
-              <FormField label="Font">
+              <FormField label="Font" htmlFor="msg-font">
                 <Select
+                  id="msg-font"
                   value={selectedFont}
                   onChange={(e) => handleFieldChange('font', e.target.value)}
+                  style={{ fontFamily: selectedFont }}
                 >
-                  {fontOptions.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
+                  {fontGroups.map((g) => (
+                    <optgroup key={g.label} label={g.label}>
+                      {g.options.map((f) => (
+                        <option key={f.value} value={f.value} style={{ fontFamily: f.value }}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </Select>
               </FormField>
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={handleSaveDraft} disabled={saving}>
+              <Button variant="outline" className="flex-1" onClick={handleSaveDraft} disabled={!!saving}>
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Draft'}
+                {saving === 'draft' ? 'Saving...' : isPublished ? 'Save changes' : 'Save Draft'}
               </Button>
-              <Button className="flex-1" onClick={handlePublish} disabled={saving}>
+              <Button className="flex-1" onClick={handlePublish} disabled={!!saving}>
                 <Eye className="w-4 h-4" />
-                {saving ? 'Publishing...' : 'Publish & Share'}
+                {saving === 'publish' ? 'Publishing...' : isPublished ? 'Update & Share' : 'Publish & Share'}
               </Button>
             </div>
+            {savedNote && (
+              <p role="status" className="flex items-center gap-1.5 text-sm text-green-700">
+                <Check className="w-4 h-4" />
+                {isPublished ? 'Changes saved. Your link shows the new version.' : 'Draft saved. Find it in your dashboard.'}
+              </p>
+            )}
+            {!user && (
+              <p className="text-sm text-stone-500">You will be asked to log in or sign up when you save. Your changes will be kept.</p>
+            )}
           </div>
 
           {/* Preview (right) */}

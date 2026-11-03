@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Heart, ArrowLeft } from 'lucide-react';
-import { fetchPublicInvitation, fetchInvitationTemplates } from '@/lib/api';
+import { fetchPublicInvitation } from '@/lib/api';
+import { getInvitationTemplate } from '@/data/templates';
 import InvitationPreview from '@/components/InvitationPreview';
 import Spinner from '@/components/ui/Spinner';
 import type { Invitation, InvitationTemplate } from '@/types';
@@ -16,17 +17,13 @@ export default function PublicInvitationPage() {
   useEffect(() => {
     if (!slug) return;
     fetchPublicInvitation(slug)
-      .then(async (inv) => {
+      .then((inv) => {
         if (!inv) {
           setError('Invitation not found or not yet published.');
           return;
         }
         setInvitation(inv);
-        if (inv.template_id) {
-          const templates = await fetchInvitationTemplates();
-          const tpl = templates.find((t) => t.id === inv.template_id);
-          setTemplate(tpl ?? null);
-        }
+        setTemplate(getInvitationTemplate(inv.template_id));
       })
       .catch(() => setError('Failed to load invitation.'))
       .finally(() => setLoading(false));
@@ -63,7 +60,6 @@ export default function PublicInvitationPage() {
     );
   }
 
-  const config = { ...template?.config, ...invitation.customization };
   const mapsUrl = invitation.address
     ? `https://maps.google.com/?q=${encodeURIComponent(
         `${invitation.venue || ''} ${invitation.address || ''}`

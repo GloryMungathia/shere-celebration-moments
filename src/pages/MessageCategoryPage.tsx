@@ -1,32 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
-import { fetchMessageTemplates } from '@/lib/api';
 import {
   messageCategoryLabels,
   messageCategoryIcons,
+  getMessageTemplates,
 } from '@/data/messageTemplates';
-import type { MessageCategory, MessageTemplate } from '@/types';
+import type { MessageCategory } from '@/types';
 
 const categories = Object.keys(messageCategoryLabels) as MessageCategory[];
 
 export default function MessageCategoryPage() {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<MessageCategory | null>(null);
-  const [templates, setTemplates] = useState<MessageTemplate[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!selectedCategory) return;
-    setLoading(true);
-    fetchMessageTemplates(selectedCategory)
-      .then(setTemplates)
-      .catch(() => setTemplates([]))
-      .finally(() => setLoading(false));
-  }, [selectedCategory]);
+  const templates = selectedCategory ? getMessageTemplates(selectedCategory) : [];
 
   if (selectedCategory) {
     return (
@@ -49,11 +38,7 @@ export default function MessageCategoryPage() {
             </p>
           </div>
 
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <Spinner size="lg" />
-            </div>
-          ) : templates.length === 0 ? (
+          {templates.length === 0 ? (
             <p className="text-stone-500 text-center py-12">
               No message templates available for this category yet.
             </p>

@@ -3,34 +3,32 @@ import { Mail, MessageSquare, Check, AlertCircle } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import Button from '@/components/ui/Button';
 import FormField, { Input, TextArea } from '@/components/ui/FormField';
-import { supabase } from '@/lib/supabase';
+import { sendContactMessage } from '@/lib/api';
+import { contactErrors } from '@/lib/validation';
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [checked, setChecked] = useState(false);
+  const errors = contactErrors(form);
+  const show = (field: string) => (checked ? errors[field] : undefined);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setChecked(true);
+    if (Object.keys(errors).length > 0) return;
     setSubmitting(true);
     try {
-      const { error: fnError } = await supabase.functions.invoke('contact-form', {
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          subject: form.subject,
-          message: form.message,
-        }),
-      });
-      if (fnError) throw fnError;
+      await sendContactMessage(form);
       setSubmitted(true);
+      setChecked(false);
       setForm({ name: '', email: '', subject: '', message: '' });
       setTimeout(() => setSubmitted(false), 6000);
     } catch (err) {
-      console.error(err);
-      setError('Failed to send your message. Please try again or email us directly.');
+      setError(err instanceof Error ? err.message : 'Failed to send your message. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -70,41 +68,46 @@ export default function ContactPage() {
           </div>
         ) : (
           <form
+            noValidate
             onSubmit={handleSubmit}
             className="rounded-2xl bg-white border border-stone-100 shadow-sm p-6 md:p-8 space-y-4"
           >
-            <FormField label="Your Name">
+            <FormField label="Your Name" htmlFor="contact-name" error={show('name')}>
               <Input
+                id="contact-name"
+                invalid={!!show('name')}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="John Smith"
-                required
               />
             </FormField>
-            <FormField label="Email">
+            <FormField label="Email" htmlFor="contact-email" error={show('email')}>
               <Input
                 type="email"
+                id="contact-email"
+                invalid={!!show('email')}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="you@example.com"
-                required
               />
             </FormField>
-            <FormField label="Subject">
+            <FormField label="Subject" htmlFor="contact-subject" error={show('subject')}>
               <Input
+                id="contact-subject"
+                invalid={!!show('subject')}
                 value={form.subject}
                 onChange={(e) => setForm({ ...form, subject: e.target.value })}
                 placeholder="How can we help?"
-                required
               />
             </FormField>
-            <FormField label="Message">
+            <FormField label="Message" htmlFor="contact-message" error={show('message')}>
               <TextArea
                 rows={5}
+                id="contact-message"
+                invalid={!!show('message')}
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
                 placeholder="Tell us more..."
-                required
               />
             </FormField>
             <Button type="submit" className="w-full" size="lg" disabled={submitting}>

@@ -93,17 +93,16 @@ Receive Celebration Messages
 
 ### Backend & Services
 
-- Supabase Authentication
-- Supabase PostgreSQL Database
-- Supabase Storage
-- Supabase Edge Functions
-- Resend for email delivery
+- Python FastAPI (API, login and accounts)
+- PostgreSQL on Neon (database)
+- Resend (emails from the contact form)
 
 ### Deployment
 
 - GitHub — source code and version control
 - Netlify — frontend hosting
-- Supabase — backend services
+- Render — backend hosting
+- Neon — database hosting
 
 ---
 
@@ -124,19 +123,15 @@ SHERÉ Moments uses a modern web application architecture:
                                │
                                ▼
                     ┌─────────────────────┐
-                    │      Supabase       │
-                    ├─────────────────────┤
-                    │ Authentication      │
-                    │ PostgreSQL Database │
-                    │ Storage             │
-                    │ Edge Functions      │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │       Resend        │
-                    │   Email Delivery    │
-                    └─────────────────────┘
+                    │   FastAPI Backend   │
+                    │  Hosted on Render   │
+                    └─────┬─────────┬─────┘
+                          │         │
+                          ▼         ▼
+              ┌──────────────┐  ┌──────────────┐
+              │  PostgreSQL  │  │    Resend    │
+              │   on Neon    │  │ Contact email│
+              └──────────────┘  └──────────────┘
 ```
 
 ---
@@ -157,18 +152,25 @@ shere-celebration-moments/
 │   │   └── # React hooks
 │   │
 │   ├── lib/
-│   │   └── # Supabase and application helpers
+│   │   └── # API client and helpers
+│   │
+│   ├── data/
+│   │   └── # Invitation designs, message templates and fonts
 │   │
 │   └── pages/
 │       └── # Application pages
 │
-├── supabase/
-│   ├── functions/
-│   │   └── # Supabase Edge Functions
-│   │
-│   └── migrations/
-│       └── # Database migrations
+├── tests/
+│   └── # Frontend tests
 │
+├── backend/
+│   ├── app/
+│   │   └── # FastAPI app, routes and database models
+│   │
+│   └── tests/
+│       └── # Backend tests
+│
+├── render.yaml
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -194,27 +196,38 @@ git clone https://github.com/GloryMungathia/shere-celebration-moments.git
 cd shere-celebration-moments
 ```
 
-### 3. Install dependencies
+### 3. Start the backend
+
+```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+uvicorn app.main:app --reload
+```
+
+The API runs at http://localhost:8000 and its docs are at http://localhost:8000/docs.
+
+### 4. Start the frontend
+
+In a second terminal, from the project folder:
 
 ```bash
 npm install
-```
-
-### 4. Configure environment variables
-
-Create a local `.env` file using `.env.example` as a guide.
-
-The frontend requires the appropriate Supabase project URL and Supabase anonymous key.
-
-**Never commit your `.env` file or private server-side credentials to GitHub.**
-
-### 5. Start the development server
-
-```bash
+cp .env.example .env
 npm run dev
 ```
 
-The application will be available locally through the Vite development server.
+The application opens at http://localhost:5173.
+
+**Never commit your `.env` file or private keys to GitHub.**
+
+### 5. Run the tests
+
+```bash
+cd backend && pytest --cov=app
+cd .. && npm run test:coverage
+```
 
 ---
 
@@ -250,12 +263,20 @@ Publish directory:
 dist
 ```
 
-The backend services are provided by Supabase, including:
+In Netlify, set `VITE_API_URL` to the Render backend address.
 
-- Authentication
-- PostgreSQL database
-- File storage
-- Edge Functions
+The backend is deployed on **Render** using `render.yaml`. The database is a free **Neon** PostgreSQL database.
+
+Render settings:
+
+| Variable | Value |
+| --- | --- |
+| DATABASE_URL | The Neon connection string |
+| FRONTEND_ORIGINS | The Netlify site address |
+| SECRET_KEY | Created by Render |
+| RESEND_API_KEY | The Resend API key |
+| ADMIN_EMAIL | The email that receives contact messages |
+| RESEND_FROM_EMAIL | The sender, for example `SHERÉ Moments <onboarding@resend.dev>` |
 
 ---
 
@@ -266,9 +287,10 @@ Environment variables are used to configure the application without exposing sen
 Example:
 
 ```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=http://localhost:8000
 ```
+
+The backend has its own example file at `backend/.env.example`.
 
 The `.env.example` file contains placeholder values for development and documentation purposes.
 
@@ -280,16 +302,14 @@ The actual `.env` file should remain local and should **not** be committed to Gi
 
 SHERÉ Moments follows basic security practices including:
 
-- Environment variables for configuration
-- Supabase authentication
-- Supabase database security policies
-- Supabase storage policies
-- Server-side handling of sensitive email configuration
-- Keeping private credentials out of the Git repository
-
-Frontend environment variables should only contain values that are safe to expose to the browser.
-
-Private server-side credentials such as service-role keys and email API keys should never be placed in frontend code.
+- Passwords are hashed with scrypt and never stored as plain text
+- One email can only have one account
+- Login pauses for 3 minutes after 5 wrong passwords
+- Users can only see and change their own invitations and messages
+- Guests can only see invitations and messages that were published
+- The contact form is limited to 5 messages per 10 minutes
+- Only the SHERÉ Moments website can call the API
+- Private keys live in Render and Netlify settings, never in the code
 
 ---
 
@@ -341,9 +361,9 @@ Future versions of SHERÉ Moments may include:
 
 **Frontend:** React + TypeScript + Vite + Tailwind CSS
 
-**Backend:** Supabase
+**Backend:** FastAPI + PostgreSQL (Neon)
 
-**Hosting:** Netlify
+**Hosting:** Netlify (frontend) and Render (backend)
 
 **Repository:**  
 https://github.com/GloryMungathia/shere-celebration-moments
@@ -357,4 +377,4 @@ https://shere-celebration-moments.netlify.app
 
 **Create a moment. Personalize it. Share the celebration.**
 
-Built with React, TypeScript, Tailwind CSS, Supabase, and Netlify.
+Built with React, TypeScript, Tailwind CSS, FastAPI, Neon, Render and Netlify.
