@@ -34,6 +34,7 @@ export interface InvitationTemplate {
   occasion: Occasion;
   style: TemplateStyle;
   config: TemplateConfig;
+  starter?: InvitationExtras;
   created_at?: string;
 }
 
@@ -43,15 +44,40 @@ export interface TemplateConfig {
   backgroundColor: string;
   textColor: string;
   font: string;
-  layout: 'centered' | 'split' | 'top-photo' | 'full-photo' | 'minimal';
+  layout: 'centered' | 'split' | 'top-photo' | 'full-photo' | 'minimal' | 'card';
   supportsPhoto: boolean;
   decorative: string;
   borderRadius: string;
+  headingFont?: string;
+  accentFont?: string;
+  pattern?: string;
+  emblem?: 'show' | 'none';
+}
+
+export interface EventDetails {
+  label?: string;
+  date?: string | null;
+  time?: string;
+  venue?: string;
+  address?: string;
+}
+
+export interface InvitationExtras {
+  intro?: string;
+  event_label?: string;
+  closing?: string;
+  signature?: string;
+  second_event?: EventDetails | null;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
 }
 
 export interface Invitation {
   id: string;
-  user_id: string;
   occasion: Occasion;
   template_id: string | null;
   title: string | null;
@@ -63,6 +89,7 @@ export interface Invitation {
   message: string | null;
   photo_url: string | null;
   customization: Partial<TemplateConfig>;
+  extras?: InvitationExtras;
   slug: string | null;
   status: ItemStatus;
   created_at?: string;
@@ -79,7 +106,6 @@ export interface MessageTemplate {
 
 export interface CelebrationMessage {
   id: string;
-  user_id: string;
   category: MessageCategory;
   recipient_name: string | null;
   title: string | null;
@@ -104,8 +130,7 @@ export interface InvitationInput {
   message?: string;
   photo_url?: string | null;
   customization?: Partial<TemplateConfig>;
-  slug?: string | null;
-  status?: ItemStatus;
+  extras?: InvitationExtras;
 }
 
 export interface MessageInput {
@@ -115,6 +140,4 @@ export interface MessageInput {
   message?: string;
   sender_name?: string;
   font?: string | null;
-  slug?: string | null;
-  status?: ItemStatus;
 }

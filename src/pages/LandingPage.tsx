@@ -4,7 +4,6 @@ import {
   Cake,
   GraduationCap,
   Award,
-  Sparkles,
   Baby,
   PartyPopper,
   ArrowRight,
@@ -28,12 +27,6 @@ export default function LandingPage() {
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/60 backdrop-blur-sm border border-rose-100 mb-6">
-              <Sparkles className="w-4 h-4 text-rose-500" />
-              <span className="text-sm font-medium text-stone-600">
-                Beautiful invitations in minutes
-              </span>
-            </div>
             <h1 className="text-4xl md:text-6xl font-bold text-stone-800 tracking-tight leading-tight">
               Create beautiful invitations for life's special moments
             </h1>

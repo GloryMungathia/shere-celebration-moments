@@ -1,234 +1,186 @@
-import { supabase } from './supabase';
 import type {
-  Invitation,
   CelebrationMessage,
+  Invitation,
   InvitationInput,
   MessageInput,
-  InvitationTemplate,
-  MessageTemplate,
+  User,
 } from '@/types';
 
-// ---------- Templates ----------
+const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
+export const API_URL = (env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
 
-export async function fetchInvitationTemplates(
-  occasion?: string
-): Promise<InvitationTemplate[]> {
-  let query = supabase
-    .from('invitation_templates')
-    .select('*')
-    .order('created_at', { ascending: true });
-  if (occasion) query = query.eq('occasion', occasion);
-  const { data, error } = await query;
-  if (error) throw error;
-  return data ?? [];
+const TOKEN_KEY = 'shere_token';
+
+function storages(): Storage[] {
+  const list: Storage[] = [];
+  try {
+    if (typeof localStorage !== 'undefined') list.push(localStorage);
+  } catch {
+    return list;
+  }
+  try {
+    if (typeof sessionStorage !== 'undefined') list.push(sessionStorage);
+  } catch {
+    return list;
+  }
+  return list;
 }
 
-export async function fetchMessageTemplates(
-  category?: string
-): Promise<MessageTemplate[]> {
-  let query = supabase
-    .from('message_templates')
-    .select('*')
-    .order('created_at', { ascending: true });
-  if (category) query = query.eq('category', category);
-  const { data, error } = await query;
-  if (error) throw error;
-  return data ?? [];
+export function getToken(): string | null {
+  for (const store of storages()) {
+    try {
+      const token = store.getItem(TOKEN_KEY);
+      if (token) return token;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
-// ---------- Invitations ----------
-
-export async function fetchUserInvitations(): Promise<Invitation[]> {
-  const { data, error } = await supabase
-    .from('invitations')
-    .select('*')
-    .order('updated_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+export function setToken(token: string | null, remember = false): void {
+  for (const store of storages()) {
+    try {
+      store.removeItem(TOKEN_KEY);
+    } catch {
+      continue;
+    }
+  }
+  if (!token) return;
+  const [local, session] = storages();
+  const target = remember ? local : session ?? local;
+  try {
+    target?.setItem(TOKEN_KEY, token);
+  } catch {
+    return;
+  }
 }
 
-export async function fetchInvitationById(id: string): Promise<Invitation | null> {
-  const { data, error } = await supabase
-    .from('invitations')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
 }
 
-export async function fetchPublicInvitation(slug: string): Promise<Invitation | null> {
-  const { data, error } = await supabase
-    .from('invitations')
-    .select('*')
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+export function errorMessage(body: unknown, fallback: string): string {
+  if (body && typeof body === 'object' && 'detail' in body) {
+    const detail = (body as { detail: unknown }).detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail) && detail.length > 0) {
+      const first = detail[0] as { msg?: string };
+      if (first?.msg) return first.msg.replace(/^Value error, /, '');
+    }
+  }
+  return fallback;
 }
 
-export async function createInvitation(
-  input: InvitationInput
-): Promise<Invitation> {
-  const { data, error } = await supabase
-    .from('invitations')
-    .insert(input)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+export async function request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: options.method ?? 'GET',
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    });
+  } catch {
+    throw new ApiError('Cannot reach the server. Check your internet and try again.', 0);
+  }
+
+  if (res.status === 204) return null as T;
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    body = null;
+  }
+  if (!res.ok) throw new ApiError(errorMessage(body, 'Something went wrong. Please try again.'), res.status);
+  return body as T;
 }
 
-export async function updateInvitation(
-  id: string,
-  input: Partial<InvitationInput>
-): Promise<Invitation> {
-  const { data, error } = await supabase
-    .from('invitations')
-    .update({ ...input, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+interface AuthResponse {
+  access_token: string;
+  user: User;
 }
 
-export async function deleteInvitation(id: string): Promise<void> {
-  const { error } = await supabase.from('invitations').delete().eq('id', id);
-  if (error) throw error;
-}
-
-export async function publishInvitation(id: string): Promise<Invitation> {
-  const slug = generateSlug();
-  const { data, error } = await supabase
-    .from('invitations')
-    .update({ status: 'published', slug, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-// ---------- Celebration Messages ----------
-
-export async function fetchUserMessages(): Promise<CelebrationMessage[]> {
-  const { data, error } = await supabase
-    .from('celebration_messages')
-    .select('*')
-    .order('updated_at', { ascending: false });
-  if (error) throw error;
-  return data ?? [];
-}
-
-export async function fetchMessageById(id: string): Promise<CelebrationMessage | null> {
-  const { data, error } = await supabase
-    .from('celebration_messages')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
-export async function fetchPublicMessage(slug: string): Promise<CelebrationMessage | null> {
-  const { data, error } = await supabase
-    .from('celebration_messages')
-    .select('*')
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
-export async function createMessage(input: MessageInput): Promise<CelebrationMessage> {
-  const { data, error } = await supabase
-    .from('celebration_messages')
-    .insert(input)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function updateMessage(
-  id: string,
-  input: Partial<MessageInput>
-): Promise<CelebrationMessage> {
-  const { data, error } = await supabase
-    .from('celebration_messages')
-    .update({ ...input, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteMessage(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('celebration_messages')
-    .delete()
-    .eq('id', id);
-  if (error) throw error;
-}
-
-export async function publishMessage(id: string): Promise<CelebrationMessage> {
-  const slug = generateSlug();
-  const { data, error } = await supabase
-    .from('celebration_messages')
-    .update({ status: 'published', slug, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-// ---------- Auth ----------
-
-export async function signUp(email: string, password: string, name: string) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { name } },
+export async function signUp(name: string, email: string, password: string, remember = true): Promise<User> {
+  const data = await request<AuthResponse>('/api/auth/register', {
+    method: 'POST',
+    body: { name, email, password, remember },
   });
-  if (error) throw error;
-  return data;
+  setToken(data.access_token, remember);
+  return data.user;
 }
 
-export async function signIn(email: string, password: string) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+export async function signIn(email: string, password: string, remember = false): Promise<User> {
+  const data = await request<AuthResponse>('/api/auth/login', {
+    method: 'POST',
+    body: { email, password, remember },
   });
-  if (error) throw error;
-  return data;
+  setToken(data.access_token, remember);
+  return data.user;
 }
 
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+export function signOut(): void {
+  setToken(null);
 }
 
-// ---------- Image Upload ----------
-
-export async function uploadPhoto(file: File, userId: string): Promise<string> {
-  const ext = file.name.split('.').pop() || 'jpg';
-  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await supabase.storage.from('invitation-photos').upload(path, file, {
-    cacheControl: '3600',
-    upsert: false,
-  });
-  if (error) throw error;
-  const { data } = supabase.storage.from('invitation-photos').getPublicUrl(path);
-  return data.publicUrl;
+export function fetchMe(): Promise<User> {
+  return request<User>('/api/auth/me');
 }
 
-// ---------- Helpers ----------
+export const fetchUserInvitations = () => request<Invitation[]>('/api/invitations');
+export const fetchInvitationById = (id: string) => request<Invitation>(`/api/invitations/${id}`);
+export const createInvitation = (input: InvitationInput) =>
+  request<Invitation>('/api/invitations', { method: 'POST', body: input });
+export const updateInvitation = (id: string, input: InvitationInput) =>
+  request<Invitation>(`/api/invitations/${id}`, { method: 'PUT', body: input });
+export const publishInvitation = (id: string) =>
+  request<Invitation>(`/api/invitations/${id}/publish`, { method: 'POST' });
+export const unpublishInvitation = (id: string) =>
+  request<Invitation>(`/api/invitations/${id}/unpublish`, { method: 'POST' });
+export const deleteInvitation = (id: string) =>
+  request<null>(`/api/invitations/${id}`, { method: 'DELETE' });
 
-function generateSlug(): string {
-  return Math.random().toString(36).substring(2, 8) + Date.now().toString(36).slice(-4);
+export const fetchUserMessages = () => request<CelebrationMessage[]>('/api/messages');
+export const fetchMessageById = (id: string) => request<CelebrationMessage>(`/api/messages/${id}`);
+export const createMessage = (input: MessageInput) =>
+  request<CelebrationMessage>('/api/messages', { method: 'POST', body: input });
+export const updateMessage = (id: string, input: MessageInput) =>
+  request<CelebrationMessage>(`/api/messages/${id}`, { method: 'PUT', body: input });
+export const publishMessage = (id: string) =>
+  request<CelebrationMessage>(`/api/messages/${id}/publish`, { method: 'POST' });
+export const unpublishMessage = (id: string) =>
+  request<CelebrationMessage>(`/api/messages/${id}/unpublish`, { method: 'POST' });
+export const deleteMessage = (id: string) => request<null>(`/api/messages/${id}`, { method: 'DELETE' });
+
+async function publicItem<T>(path: string): Promise<T | null> {
+  try {
+    return await request<T>(path);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
 }
+
+export const fetchPublicInvitation = (slug: string) =>
+  publicItem<Invitation>(`/api/public/invitations/${encodeURIComponent(slug)}`);
+export const fetchPublicMessage = (slug: string) =>
+  publicItem<CelebrationMessage>(`/api/public/messages/${encodeURIComponent(slug)}`);
+
+export interface ContactInput {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}
+
+export const sendContactMessage = (input: ContactInput) =>
+  request<{ message: string }>('/api/contact', { method: 'POST', body: input });

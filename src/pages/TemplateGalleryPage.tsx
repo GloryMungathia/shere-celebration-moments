@@ -1,31 +1,19 @@
-import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import TemplateCard from '@/components/TemplateCard';
-import Spinner from '@/components/ui/Spinner';
-import { fetchInvitationTemplates } from '@/lib/api';
+import { getInvitationTemplates } from '@/data/templates';
 import { getOccasionInfo, occasionLabels } from '@/data/occasions';
-import type { Occasion, InvitationTemplate } from '@/types';
+import type { Occasion } from '@/types';
 
 export default function TemplateGalleryPage() {
   const { occasion } = useParams<{ occasion: string }>();
   const navigate = useNavigate();
-  const [templates, setTemplates] = useState<InvitationTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const occasionKey = occasion as Occasion;
   const occasionInfo = getOccasionInfo(occasionKey);
 
-  useEffect(() => {
-    if (!occasion) return;
-    setLoading(true);
-    fetchInvitationTemplates(occasion)
-      .then(setTemplates)
-      .catch(() => setError('Failed to load templates. Please try again.'))
-      .finally(() => setLoading(false));
-  }, [occasion]);
+  const templates = getInvitationTemplates(occasion);
 
   if (!occasionInfo) {
     return (
@@ -64,15 +52,7 @@ export default function TemplateGalleryPage() {
           </p>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <Spinner size="lg" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-20">
-            <p className="text-red-500">{error}</p>
-          </div>
-        ) : templates.length === 0 ? (
+        {templates.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-stone-500">No templates available yet for this occasion.</p>
           </div>

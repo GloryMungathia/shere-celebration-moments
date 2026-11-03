@@ -1,13 +1,191 @@
-import type { Occasion, TemplateStyle, TemplateConfig, InvitationTemplate } from '@/types';
+import type { Occasion, TemplateStyle, TemplateConfig, InvitationTemplate, InvitationExtras } from '@/types';
 
 export interface TemplateSeed {
   name: string;
   occasion: Occasion;
   style: TemplateStyle;
   config: TemplateConfig;
+  starter?: InvitationExtras;
 }
 
-export const templateSeeds: TemplateSeed[] = [
+const card = (config: Omit<TemplateConfig, 'layout' | 'decorative' | 'borderRadius'> & Partial<TemplateConfig>): TemplateConfig => ({
+  layout: 'card',
+  decorative: '',
+  borderRadius: '6px',
+  emblem: 'show',
+  ...config,
+});
+
+export const cardSeeds: TemplateSeed[] = [
+  {
+    name: 'Rose Garden',
+    occasion: 'wedding',
+    style: 'floral',
+    config: card({
+      primaryColor: '#9f4b5b',
+      accentColor: '#b08d57',
+      backgroundColor: '#fdf8f3',
+      textColor: '#44403c',
+      font: "'Cormorant Garamond', serif",
+      headingFont: "'Great Vibes', cursive",
+      accentFont: "'Great Vibes', cursive",
+      supportsPhoto: false,
+      pattern: 'florals',
+      emblem: 'none',
+    }),
+    starter: { intro: 'Together with their families', event_label: 'The Wedding', closing: 'Love makes life beautiful.' },
+  },
+  {
+    name: 'Balloon Party',
+    occasion: 'birthday',
+    style: 'festive',
+    config: card({
+      primaryColor: '#1e3a8a',
+      accentColor: '#ec4899',
+      backgroundColor: '#ffffff',
+      textColor: '#334155',
+      font: "'Poppins', sans-serif",
+      headingFont: "'Pacifico', cursive",
+      accentFont: "'Pacifico', cursive",
+      supportsPhoto: true,
+      pattern: 'balloons',
+      emblem: 'none',
+    }),
+    starter: { intro: "Let's celebrate", event_label: 'Birthday Party', closing: 'Come hungry, leave happy!' },
+  },
+  {
+    name: 'Navy & Gold',
+    occasion: 'graduation',
+    style: 'elegant',
+    config: card({
+      primaryColor: '#e7c873',
+      accentColor: '#c9a54a',
+      backgroundColor: '#13254a',
+      textColor: '#f1f5f9',
+      font: "'Montserrat', sans-serif",
+      headingFont: "'Great Vibes', cursive",
+      accentFont: "'Great Vibes', cursive",
+      supportsPhoto: false,
+      pattern: 'laurels',
+    }),
+    starter: { intro: "You're invited to", event_label: 'Graduation Ceremony', closing: 'Big dreams. Bright future.' },
+  },
+  {
+    name: 'Crimson Ceremony',
+    occasion: 'graduation',
+    style: 'classic',
+    config: card({
+      primaryColor: '#8b1c24',
+      accentColor: '#1c1917',
+      backgroundColor: '#ffffff',
+      textColor: '#292524',
+      font: "'EB Garamond', serif",
+      headingFont: "'Great Vibes', cursive",
+      accentFont: "'Pinyon Script', cursive",
+      supportsPhoto: false,
+      pattern: 'classic',
+      borderRadius: '0px',
+    }),
+    starter: {
+      intro: 'Graduation invite',
+      event_label: 'Graduation Ceremony',
+      closing: 'Thank you for being part of my story.',
+      second_event: { label: 'Celebration Party', date: null, time: '', venue: '', address: '' },
+    },
+  },
+  {
+    name: 'Blush Roses',
+    occasion: 'anniversary',
+    style: 'floral',
+    config: card({
+      primaryColor: '#be3455',
+      accentColor: '#d4a373',
+      backgroundColor: '#fff5f5',
+      textColor: '#57534e',
+      font: "'Lora', serif",
+      headingFont: "'Allura', cursive",
+      accentFont: "'Dancing Script', cursive",
+      supportsPhoto: true,
+      pattern: 'florals',
+      emblem: 'none',
+    }),
+    starter: { intro: 'Happy anniversary', event_label: 'Anniversary Dinner', closing: 'Celebrating love, today and always.' },
+  },
+  {
+    name: 'Lavender Bloom',
+    occasion: 'engagement',
+    style: 'floral',
+    config: card({
+      primaryColor: '#6d4c9f',
+      accentColor: '#a78bfa',
+      backgroundColor: '#faf7ff',
+      textColor: '#4c4560',
+      font: "'Josefin Sans', sans-serif",
+      headingFont: "'Allura', cursive",
+      accentFont: "'Great Vibes', cursive",
+      supportsPhoto: true,
+      pattern: 'florals',
+      emblem: 'none',
+    }),
+    starter: { intro: "You're invited to our engagement", event_label: 'Engagement Party', closing: 'Together is a beautiful place to be.' },
+  },
+  {
+    name: 'Little Bear',
+    occasion: 'baby-shower',
+    style: 'festive',
+    config: card({
+      primaryColor: '#a4703f',
+      accentColor: '#93c5fd',
+      backgroundColor: '#f5faff',
+      textColor: '#334155',
+      font: "'Quicksand', sans-serif",
+      headingFont: "'Pacifico', cursive",
+      accentFont: "'Dancing Script', cursive",
+      supportsPhoto: false,
+      pattern: 'clouds',
+      borderRadius: '18px',
+    }),
+    starter: { intro: 'Honouring', event_label: 'Baby Shower', closing: 'A little one is on the way!' },
+  },
+  {
+    name: 'Evening Lights',
+    occasion: 'other',
+    style: 'festive',
+    config: card({
+      primaryColor: '#f3d27a',
+      accentColor: '#6b9a5b',
+      backgroundColor: '#163a2b',
+      textColor: '#f5f5f4',
+      font: "'Raleway', sans-serif",
+      headingFont: "'Lobster', cursive",
+      accentFont: "'Satisfy', cursive",
+      supportsPhoto: false,
+      pattern: 'lights',
+      emblem: 'none',
+    }),
+    starter: { intro: "You're invited to a", event_label: 'The Celebration', closing: "Let's make it memorable!" },
+  },
+  {
+    name: 'Confetti Pop',
+    occasion: 'other',
+    style: 'festive',
+    config: card({
+      primaryColor: '#7c3aed',
+      accentColor: '#f59e0b',
+      backgroundColor: '#fffdf7',
+      textColor: '#3f3f46',
+      font: "'Poppins', sans-serif",
+      headingFont: "'Righteous', sans-serif",
+      accentFont: "'Satisfy', cursive",
+      supportsPhoto: true,
+      pattern: 'confetti',
+      emblem: 'none',
+    }),
+    starter: { intro: 'Join us for', event_label: 'Party Details', closing: 'See you there!' },
+  },
+];
+
+export const classicSeeds: TemplateSeed[] = [
   // ---- Wedding ----
   {
     name: 'Romantic Elegance',
@@ -369,6 +547,8 @@ export const templateSeeds: TemplateSeed[] = [
   },
 ];
 
+export const templateSeeds: TemplateSeed[] = [...cardSeeds, ...classicSeeds];
+
 export const defaultTemplateConfig: TemplateConfig = templateSeeds[0].config;
 
 export const colorPresets = [
@@ -388,3 +568,24 @@ export const textColorPresets = [
   '#134e4a', '#0c4a6e', '#500724', '#312e81', '#3b0764',
   '#7f1d1d', '#164e63',
 ];
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export const invitationTemplates: InvitationTemplate[] = templateSeeds.map((seed) => ({
+  id: `${seed.occasion}-${slugify(seed.name)}`,
+  ...seed,
+}));
+
+export function getInvitationTemplates(occasion?: string): InvitationTemplate[] {
+  return occasion ? invitationTemplates.filter((t) => t.occasion === occasion) : invitationTemplates;
+}
+
+export function getInvitationTemplate(id: string | null | undefined): InvitationTemplate | null {
+  return invitationTemplates.find((t) => t.id === id) ?? null;
+}

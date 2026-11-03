@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [messages, setMessages] = useState<CelebrationMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'invitations' | 'messages'>('invitations');
   const [shareUrl, setShareUrl] = useState('');
   const [shareTitle, setShareTitle] = useState('');
@@ -46,7 +47,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/login');
+      navigate('/login', { replace: true, state: { from: '/dashboard' } });
       return;
     }
     if (!user) return;
@@ -55,7 +56,7 @@ export default function DashboardPage() {
         setInvitations(invs);
         setMessages(msgs);
       })
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load your items.'))
       .finally(() => setLoading(false));
   }, [user, authLoading, navigate]);
 
@@ -82,7 +83,7 @@ export default function DashboardPage() {
         handleShare(pub.slug!, messages.find((m) => m.id === id)?.title || 'Message', 'message');
       }
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to publish. Please try again.');
     }
   };
 
@@ -97,7 +98,7 @@ export default function DashboardPage() {
         setMessages((prev) => prev.filter((m) => m.id !== deleteTarget.id));
       }
     } catch (err) {
-      console.error(err);
+      setError(err instanceof Error ? err.message : 'Failed to delete. Please try again.');
     } finally {
       setDeleteTarget(null);
     }
@@ -118,10 +119,16 @@ export default function DashboardPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <div className="mb-8">
           <h1 className="text-2xl md:text-3xl font-bold text-stone-800">
-            Welcome back, {user?.user_metadata?.name || user?.email}
+            Welcome back, {user?.name}
           </h1>
           <p className="text-stone-500 mt-1">Manage your invitations and messages</p>
         </div>
+
+        {error && (
+          <div role="alert" className="mb-6 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+            {error}
+          </div>
+        )}
 
         {/* Quick actions */}
         <div className="flex flex-wrap gap-3 mb-8">
@@ -199,13 +206,19 @@ export default function DashboardPage() {
                       {inv.event_date && (
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(inv.event_date).toLocaleDateString()}
+                          {new Date(`${inv.event_date}T00:00:00`).toLocaleDateString()}
                         </span>
                       )}
                       <span>{new Date(inv.created_at || '').toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Link to={`/editor/${inv.template_id ?? inv.occasion}?id=${inv.id}`}>
+                      <Button size="sm" variant="ghost" aria-label={`Edit ${inv.title || inv.name || 'invitation'}`}>
+                        <Pencil className="w-4 h-4" />
+                        Edit
+                      </Button>
+                    </Link>
                     {inv.status === 'published' && inv.slug ? (
                       <>
                         <Button
@@ -232,6 +245,7 @@ export default function DashboardPage() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      aria-label={`Delete ${inv.title || inv.name || 'invitation'}`}
                       onClick={() => setDeleteTarget({ type: 'invitation', id: inv.id, name: inv.title || inv.name || 'this invitation' })}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
@@ -281,6 +295,12 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Link to={`/message-editor?id=${msg.id}`}>
+                      <Button size="sm" variant="ghost" aria-label={`Edit ${msg.title || 'message'}`}>
+                        <Pencil className="w-4 h-4" />
+                        Edit
+                      </Button>
+                    </Link>
                     {msg.status === 'published' && msg.slug ? (
                       <>
                         <Button
@@ -307,6 +327,7 @@ export default function DashboardPage() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      aria-label={`Delete ${msg.title || 'message'}`}
                       onClick={() => setDeleteTarget({ type: 'message', id: msg.id, name: msg.title || 'this message' })}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
