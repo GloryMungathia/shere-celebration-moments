@@ -393,7 +393,7 @@ Future versions of SHERÉ Moments may include:
 https://github.com/GloryMungathia/shere-celebration-moments
 
 **Live Website:**  
-https://shere-celebration-moments.netlify.app
+[https://shere-celebration-moments.netlify.app](https://shere-celebretion-moments.netlify.app)
 
 ---
 
